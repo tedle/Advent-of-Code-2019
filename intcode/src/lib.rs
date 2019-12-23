@@ -166,6 +166,21 @@ impl IndexMut<usize> for Memory {
     }
 }
 
+pub enum Poll {
+    Result(i64),
+    None,
+    Stop,
+}
+
+impl Poll {
+    pub fn to_option(&self) -> Option<i64> {
+        match self {
+            Poll::Result(i) => Some(*i),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Cpu {
     pub inputs: VecDeque<i64>,
@@ -202,6 +217,11 @@ impl Cpu {
         param.read_as_ptr(&self.memory, self.bp, self.sp)
     }
 
+    pub fn poll(&mut self) -> Poll {
+        let op = Op::new(&self.memory, self.sp);
+        self.run_op(&op)
+    }
+
     pub fn run(&mut self) -> Option<i64> {
         self.run_with(&vec![])
     }
@@ -211,79 +231,88 @@ impl Cpu {
 
         loop {
             let op = Op::new(&self.memory, self.sp);
-            match op.code {
-                OpCode::Add => {
-                    self.ax = self.read_param(&op.params[0]);
-                    self.bx = self.read_param(&op.params[1]);
-                    self.cx = self.read_param_as_ptr(&op.params[2]);
-
-                    self.memory[self.cx as usize] = self.ax + self.bx;
-                    self.sp += op.len();
-                }
-                OpCode::Mul => {
-                    self.ax = self.read_param(&op.params[0]);
-                    self.bx = self.read_param(&op.params[1]);
-                    self.cx = self.read_param_as_ptr(&op.params[2]);
-
-                    self.memory[self.cx as usize] = self.ax * self.bx;
-                    self.sp += op.len();
-                }
-                OpCode::In => {
-                    self.ax = self.read_param_as_ptr(&op.params[0]);
-
-                    self.memory[self.ax as usize] =
-                        self.inputs.pop_front().expect("Missing input parameter");
-                    self.sp += op.len();
-                }
-                OpCode::Out => {
-                    self.ax = self.read_param(&op.params[0]);
-
-                    self.sp += op.len();
-                    return Some(self.ax);
-                }
-                OpCode::Jnz => {
-                    self.ax = self.read_param(&op.params[0]);
-                    self.bx = self.read_param(&op.params[1]);
-
-                    self.sp = match self.ax {
-                        0 => self.sp + op.len(),
-                        _ => self.bx as usize,
-                    };
-                }
-                OpCode::Jz => {
-                    self.ax = self.read_param(&op.params[0]);
-                    self.bx = self.read_param(&op.params[1]);
-
-                    self.sp = match self.ax {
-                        0 => self.bx as usize,
-                        _ => self.sp + op.len(),
-                    };
-                }
-                OpCode::Lt => {
-                    self.ax = self.read_param(&op.params[0]);
-                    self.bx = self.read_param(&op.params[1]);
-                    self.cx = self.read_param_as_ptr(&op.params[2]);
-
-                    self.memory[self.cx as usize] = if self.ax < self.bx { 1 } else { 0 };
-                    self.sp += op.len();
-                }
-                OpCode::Eq => {
-                    self.ax = self.read_param(&op.params[0]);
-                    self.bx = self.read_param(&op.params[1]);
-                    self.cx = self.read_param_as_ptr(&op.params[2]);
-
-                    self.memory[self.cx as usize] = if self.ax == self.bx { 1 } else { 0 };
-                    self.sp += op.len();
-                }
-                OpCode::AddBp => {
-                    self.ax = self.read_param(&op.params[0]);
-
-                    self.bp = (self.bp as i64 + self.ax) as usize;
-                    self.sp += op.len();
-                }
-                OpCode::Stop => break,
+            match self.run_op(&op) {
+                Poll::Result(output) => return Some(output),
+                Poll::Stop => break,
+                Poll::None => (),
             }
         }
         None
+    }
+
+    fn run_op(&mut self, op: &Op) -> Poll {
+        match op.code {
+            OpCode::Add => {
+                self.ax = self.read_param(&op.params[0]);
+                self.bx = self.read_param(&op.params[1]);
+                self.cx = self.read_param_as_ptr(&op.params[2]);
+
+                self.memory[self.cx as usize] = self.ax + self.bx;
+                self.sp += op.len();
+            }
+            OpCode::Mul => {
+                self.ax = self.read_param(&op.params[0]);
+                self.bx = self.read_param(&op.params[1]);
+                self.cx = self.read_param_as_ptr(&op.params[2]);
+
+                self.memory[self.cx as usize] = self.ax * self.bx;
+                self.sp += op.len();
+            }
+            OpCode::In => {
+                self.ax = self.read_param_as_ptr(&op.params[0]);
+
+                self.memory[self.ax as usize] =
+                    self.inputs.pop_front().expect("Missing input parameter");
+                self.sp += op.len();
+            }
+            OpCode::Out => {
+                self.ax = self.read_param(&op.params[0]);
+
+                self.sp += op.len();
+                return Poll::Result(self.ax);
+            }
+            OpCode::Jnz => {
+                self.ax = self.read_param(&op.params[0]);
+                self.bx = self.read_param(&op.params[1]);
+
+                self.sp = match self.ax {
+                    0 => self.sp + op.len(),
+                    _ => self.bx as usize,
+                };
+            }
+            OpCode::Jz => {
+                self.ax = self.read_param(&op.params[0]);
+                self.bx = self.read_param(&op.params[1]);
+
+                self.sp = match self.ax {
+                    0 => self.bx as usize,
+                    _ => self.sp + op.len(),
+                };
+            }
+            OpCode::Lt => {
+                self.ax = self.read_param(&op.params[0]);
+                self.bx = self.read_param(&op.params[1]);
+                self.cx = self.read_param_as_ptr(&op.params[2]);
+
+                self.memory[self.cx as usize] = if self.ax < self.bx { 1 } else { 0 };
+                self.sp += op.len();
+            }
+            OpCode::Eq => {
+                self.ax = self.read_param(&op.params[0]);
+                self.bx = self.read_param(&op.params[1]);
+                self.cx = self.read_param_as_ptr(&op.params[2]);
+
+                self.memory[self.cx as usize] = if self.ax == self.bx { 1 } else { 0 };
+                self.sp += op.len();
+            }
+            OpCode::AddBp => {
+                self.ax = self.read_param(&op.params[0]);
+
+                self.bp = (self.bp as i64 + self.ax) as usize;
+                self.sp += op.len();
+            }
+            OpCode::Stop => return Poll::Stop,
+        }
+        Poll::None
     }
 }
