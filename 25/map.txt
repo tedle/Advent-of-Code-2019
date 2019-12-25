@@ -1,0 +1,31 @@
+notes:
+    danger items:
+        -photons (turns dark, eaten by grue)
+        -electromagnet (cant move)
+        -molten lava (melt)
+    -security needs asterisk, astronaut ice cream, space heater, klein bottle
+
+map:
+                                                       CORRIDOR
+                                                    (infinite loop)
+                                                          |
+          KITCHEN--------------------------------------HALL WAY
+             |                                      (molten lava)
+             |                                            |
+    HOT CHOCOLATE FOUNTAIN----PASSAGES               OBSERVATORY
+    (astronaut ice cream)   (escape pod)      (space law space brochure)
+             |
+        CREW QUARTERS----STABLES
+           (jam)            |
+             |            ARCADE
+             |          (asterisk)------SCIENCE LAB
+             |              |      (giant electromagnet)
+             |              |
+             |          ENGINEERING-------NAVIGATION
+             |        (klein bottle)   (spool of cat6)
+             |
+          STORAGE------------------------------ENTRANCE
+             |                                    |
+SECURITY-HOLO DECK   GIFT WRAPPING CENTER---SICK BAY----WARP DRIVE MAINTENANCE
+   |                        (shell)         (photons)      (space heater)
+ SANTA
